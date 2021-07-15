@@ -1,0 +1,28 @@
+last divide avarage percentage
+-------------------------------------------------------------------------------------------------
+data_1= from(bucket:"crawler_logs")|> 
+        range(start:-30d)|> 
+        filter(fn: (r) =>
+        r._measurement == "crawler_close_counter" and r._value != 0 and
+        (r._field == "last_price" or r._field == "name" or r._field == "sku" or r._field == "first_price" or 
+        r._field == "total_scraping" or r._field == "url" or r._field == "image_url" or
+        r._field == "sub_category" or r._field == "brand" or r._field == "stock_quantity" or r._field == "stock_status" or 
+        r._field == "stock_status_0" or r._field == "seller_name") 
+        )|>
+        drop(columns:["_start","_stop","_measurement","district","neighborhood","province","_time"]) |>
+        mean()
+
+data_2= from(bucket: "crawler_logs") |> range(start: -1d) |> 
+	    filter(fn: (r) => r["_measurement"] == "crawler_close_counter" and 
+        (r._field == "last_price" or r._field == "name" or r._field == "sku" or r._field == "first_price" or 
+        r._field == "total_scraping" or r._field == "url" or r._field == "image_url" or
+        r._field == "sub_category" or r._field == "brand" or r._field == "stock_quantity" or r._field == "stock_status" or 
+        r._field == "stock_status_0" or r._field == "seller_name")
+        ) |>
+        drop(columns:["_start","_stop","_measurement","district","neighborhood","province","_time"]) |>
+        last()
+join(
+  tables: {avg: data_1, last: data_2},
+  on: ["crawler_id","_field"], method: "inner"
+)|> map(fn:(r) => ({r with _value_percent: float(v: r._value_last) / r._value_avg})) |>
+group()
